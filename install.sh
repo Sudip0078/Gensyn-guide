@@ -1,6 +1,7 @@
 #!/bin/bash
 # set -e
 
+# ===== Colors =====
 if [ -t 1 ] && [ -n "$(tput colors)" ] && [ "$(tput colors)" -ge 8 ]; then
     BOLD=$(tput bold)
     RED=$(tput setaf 1)
@@ -21,17 +22,16 @@ else
     NC=""
 fi
 
-# Paths
+# ===== Paths =====
 SWARM_DIR="$HOME/rl-swarm"
 CONFIG_FILE="$SWARM_DIR/.swarm_config"
 LOG_FILE="$HOME/swarm_log.txt"
 SWAP_FILE="/swapfile"
 REPO_URL="https://github.com/gensyn-ai/rl-swarm.git"
 
-# Global Variables
 KEEP_TEMP_DATA=true
 
-# Logging
+# ===== Logging =====
 log() {
     local level="$1"
     local msg="$2"
@@ -39,22 +39,22 @@ log() {
     echo "[$timestamp] [$level] $msg" >> "$LOG_FILE"
     case "$level" in
         ERROR) echo -e "${RED}$msg${NC}" ;;
-        WARN) echo -e "${YELLOW}$msg${NC}" ;;
-        INFO) echo -e "${CYAN}$msg${NC}" ;;
+        WARN)  echo -e "${YELLOW}$msg${NC}" ;;
+        INFO)  echo -e "${CYAN}$msg${NC}" ;;
     esac
 }
 
-# Initialize
+# ===== Init =====
 init() {
     clear
     touch "$LOG_FILE"
     log "INFO" "=== SPEEDO RL-SWARM MANAGER STARTED ==="
 }
 
-# Display Header
+# ===== Header (Ice Blue / Electric Blue Theme) =====
 show_header() {
     clear
-    echo -e "${GREEN}${BOLD}"
+    echo -e "${CYAN}${BOLD}"
     echo "┌───────────────────────────────────────────────────────────────┐"
     echo "│    _____ ____  ________________  ____                         │"
     echo "│   / ___// __ \/ ____/ ____/ __ \/ __ \                        │"
@@ -62,11 +62,12 @@ show_header() {
     echo "│  ___/ / ____/ /___/ /___/ /_/ / /_/ /                         │"
     echo "│ /____/_/   /_____/_____/_____/\____/                          │"
     echo "└───────────────────────────────────────────────────────────────┘"
-    echo -e "${YELLOW}           🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈${NC}"
-    echo -e "${GREEN}===============================================================================${NC}"
+    echo -e "      🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈"
+    echo -e "               ✨ Theme: Ice Blue (Electric Blue) ✨"
+    echo -e "===============================================================================${NC}"
 }
 
-# Dependencies
+# ===== Dependencies =====
 install_deps() {
     echo "🔄 Updating package list..."
     sudo apt update -y
@@ -95,14 +96,14 @@ install_deps() {
     echo "✅ All dependencies installed successfully!"
 }
 
-# Swap Management
+# ===== Swap =====
 manage_swap() {
     if [ ! -f "$SWAP_FILE" ]; then
         sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
-        sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
-        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
-        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
-        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
+        sudo chmod 600 "$SWAP_FILE"
+        sudo mkswap "$SWAP_FILE"
+        sudo swapon "$SWAP_FILE"
+        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null
     fi
 }
 
@@ -114,21 +115,14 @@ disable_swap() {
     fi
 }
 
-# Fixall Script (placeholder)
-run_fixall() {
-    echo -e "${CYAN}🔧 Applying fixes...${NC}"
-    echo -e "${GREEN}✅ Fixall complete (placeholder).${NC}"
-    sleep 3
-}
-
-# Clone Repository
+# ===== Repo =====
 clone_repo() {
     sudo rm -rf "$SWARM_DIR" 2>/dev/null
     git clone "$REPO_URL" "$SWARM_DIR"
     cd "$SWARM_DIR"
 }
 
-# Install Node
+# ===== Actions =====
 install_node() {
     show_header
     echo -e "${CYAN}${BOLD}INSTALLATION STARTED${NC}"
@@ -137,7 +131,6 @@ install_node() {
     echo -e "${GREEN}✅ Node installed successfully!${NC}"
 }
 
-# Run Node
 run_node() {
     show_header
     echo -e "${CYAN}▶️ Running node...${NC}"
@@ -146,7 +139,6 @@ run_node() {
     npm start
 }
 
-# Update Node
 update_node() {
     show_header
     echo -e "${CYAN}⬆️ Updating node...${NC}"
@@ -156,7 +148,6 @@ update_node() {
     echo -e "${GREEN}✅ Node updated!${NC}"
 }
 
-# Reset Config
 reset_config() {
     show_header
     echo -e "${RED}⚠️ Resetting config...${NC}"
@@ -164,7 +155,6 @@ reset_config() {
     echo -e "${GREEN}✅ Config reset.${NC}"
 }
 
-# Delete Everything
 delete_all() {
     show_header
     echo -e "${RED}⚠️ Deleting node and data...${NC}"
@@ -173,17 +163,15 @@ delete_all() {
     echo -e "${GREEN}✅ Everything removed.${NC}"
 }
 
-# ===========================
-# Main Menu
-# ===========================
+# ===== Menu =====
 while true; do
     show_header
-    echo "1. Install Node"
-    echo "2. Run Node"
-    echo "3. Update Node"
-    echo "4. Reset Config"
-    echo "5. Delete Everything"
-    echo "6. Exit"
+    echo -e "${CYAN}1. Install Node${NC}"
+    echo -e "${CYAN}2. Run Node${NC}"
+    echo -e "${CYAN}3. Update Node${NC}"
+    echo -e "${CYAN}4. Reset Config${NC}"
+    echo -e "${CYAN}5. Delete Everything${NC}"
+    echo -e "${CYAN}6. Exit${NC}"
     echo "=========================================="
     read -p "👉 Select option [1-6]: " choice
 
