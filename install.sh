@@ -208,4 +208,29 @@ clone_downgraded_repo() {
 }
 
 # --- rest of your functions (config, install, run, update, etc.) stay as in your script ---
-# (All Hustle references already cleaned; banner, log headers, fixall done above)
+# (All Speedo references already cleaned; banner, log headers, fixall done above)
+# ===========================
+# Main Menu
+# ===========================
+while true; do
+    show_header
+    echo "1. Install Node"
+    echo "2. Run Node"
+    echo "3. Update Node"
+    echo "4. Reset Config"
+    echo "5. Delete Everything"
+    echo "6. Exit"
+    echo "=========================================="
+    read -p "👉 Select option [1-6]: " choice
+
+    case $choice in
+        1) install_node ;;
+        2) run_node ;;
+        3) update_node ;;
+        4) reset_config ;;
+        5) delete_all ;;
+        6) echo "👋 Bye"; exit ;;
+        *) echo "❌ Invalid option";;
+    esac
+    read -p "Press Enter to continue..."
+done
