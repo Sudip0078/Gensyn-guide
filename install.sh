@@ -145,8 +145,7 @@ install_node() {
         log INFO "✅ Python dependencies installed"
         deactivate 2>/dev/null || true
     else
-        log ERROR "❌ No package.json or requirements.txt found in repo!"
-        log INFO "⚠️ Please check the repo: $REPO_URL"
+        log INFO "⚠️ No dependency file detected (package.json or requirements.txt). Skipping dependency installation."
     fi
 }
 
@@ -157,21 +156,19 @@ run_node() {
     show_header
     log INFO "▶️ Running project..."
 
-    if [ -f "$SWARM_DIR/package.json" ]; then
-        cd "$SWARM_DIR" || { log ERROR "❌ Missing $SWARM_DIR"; return; }
+    cd "$SWARM_DIR" || { log ERROR "❌ Missing $SWARM_DIR"; return; }
+
+    if [ -f "package.json" ]; then
         if jq -e '.scripts.start' package.json >/dev/null 2>&1; then
             npm start
+        elif [ -f "index.js" ]; then
+            log INFO "⚠️ No start script. Running index.js directly."
+            node index.js
         else
-            log INFO "⚠️ No \"start\" script in package.json. Running: node index.js"
-            if [ -f "index.js" ]; then
-                node index.js
-            else
-                log ERROR "❌ No start script or index.js found."
-            fi
+            log INFO "⚠️ No start script or index.js found. Please run manually."
         fi
 
-    elif [ -f "$SWARM_DIR/requirements.txt" ]; then
-        cd "$SWARM_DIR" || { log ERROR "❌ Missing $SWARM_DIR"; return; }
+    elif [ -f "requirements.txt" ]; then
         source venv/bin/activate 2>/dev/null || python3 -m venv venv && source venv/bin/activate
         if [ -f "main.py" ]; then
             python3 main.py
@@ -180,7 +177,7 @@ run_node() {
         fi
         deactivate 2>/dev/null || true
     else
-        log ERROR "❌ Cannot run project. No Node.js or Python entry point found."
+        log INFO "⚠️ No entry point detected. Repo may only contain scripts or libraries."
     fi
 }
 
@@ -244,13 +241,13 @@ while true; do
     read -r choice
 
     case $choice in
-        1) install_node ;;
-        2) run_node ;;
-        3) update_node ;;
-        4) reset_config ;;
-        5) delete_all ;;
-        6) log INFO "👋 Bye"; exit ;;
-        *) log ERROR "❌ Invalid option";;
+        1) echo -e "${CYAN}➡️ Installing Node...${NC}"; install_node ;;
+        2) echo -e "${CYAN}▶️ Running Node...${NC}"; run_node ;;
+        3) echo -e "${CYAN}⬆️ Updating Node...${NC}"; update_node ;;
+        4) echo -e "${CYAN}🧹 Resetting Config...${NC}"; reset_config ;;
+        5) echo -e "${CYAN}🔥 Deleting Everything...${NC}"; delete_all ;;
+        6) echo -e "${CYAN}👋 Bye!${NC}"; log INFO "👋 Bye"; exit ;;
+        *) echo -e "${CYAN}❌ Invalid option${NC}"; log ERROR "❌ Invalid option";;
     esac
 
     echo -e "${CYAN}Press Enter to continue...${NC}"
