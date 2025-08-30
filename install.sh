@@ -46,8 +46,8 @@ show_header() {
     echo "└───────────────────────────────────────────────────────────────┘"
     echo -e " 🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈
 
-                       Do not pspsssps 😼"
-    echo -e ".    💐 Theme: Electric Cyan 💐"
+              Do not pspsssps 😼"
+    echo -e " 💐 Theme: Electric Cyan 💐"
     echo -e "===============================================================================${NC}"
 }
 
@@ -224,18 +224,19 @@ delete_all() {
 }
 
 # ===========================
+# ===========================
 # MAIN MENU
 # ===========================
 while true; do
     show_header
-    echo "1. Install Node"
-    echo "2. Run Node"
-    echo "3. Update Node"
-    echo "4. Reset Config"
-    echo "5. Delete Everything"
-    echo "6. Exit"
-    echo "=========================================="
-    read -r -p "👉 Select option [1-6]: " choice
+    echo -e "${CYAN}${BOLD}1.${NC} Install Node"
+    echo -e "${CYAN}${BOLD}2.${NC} Run Node"
+    echo -e "${CYAN}${BOLD}3.${NC} Update Node"
+    echo -e "${CYAN}${BOLD}4.${NC} Reset Config"
+    echo -e "${CYAN}${BOLD}5.${NC} Delete Everything"
+    echo -e "${CYAN}${BOLD}6.${NC} Exit"
+    echo -e "${CYAN}==========================================${NC}"
+    read -r -p "$(echo -e ${CYAN}👉 Select option [1-6]:${NC} ) " choice
 
     case $choice in
         1) install_node ;;
@@ -243,8 +244,8 @@ while true; do
         3) update_node ;;
         4) reset_config ;;
         5) delete_all ;;
-        6) echo "👋 Bye"; exit ;;
-        *) echo "❌ Invalid option";;
+        6) echo -e "${CYAN}👋 Bye${NC}"; exit ;;
+        *) echo -e "${CYAN}❌ Invalid option${NC}";;
     esac
-    read -r -p "Press Enter to continue..."
+    read -r -p "$(echo -e ${CYAN}Press Enter to continue...${NC})"
 done
