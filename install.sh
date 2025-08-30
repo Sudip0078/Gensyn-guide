@@ -1,34 +1,41 @@
 #!/bin/bash
-# set -e
 
 # ===========================
 # COLORS
 # ===========================
-CYAN="\033[0;36m"
+RESET="\033[0m"
 BOLD="\033[1m"
-NC="\033[0m"
+CYAN="\033[96m"
+GREEN="\033[92m"
+YELLOW="\033[93m"
+RED="\033[91m"
 
 # ===========================
-# PATHS & VARIABLES
+# VARIABLES
 # ===========================
+REPO_URL="https://github.com/gensyn-ai/rl-swarm.git"
 SWARM_DIR="$HOME/rl-swarm"
 CONFIG_FILE="$SWARM_DIR/.swarm_config"
 LOG_FILE="$HOME/swarm_log.txt"
-SWAP_FILE="/swapfile"
-REPO_URL="https://github.com/gensyn-ai/rl-swarm.git"
-
-KEEP_TEMP_DATA=true
 
 # ===========================
-# LOGGING
+# LOGGING FUNCTION
 # ===========================
 log() {
     local level="$1"
     local msg="$2"
     local timestamp
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    case $level in
+        INFO) color=$GREEN ;;
+        WARN) color=$YELLOW ;;
+        ERROR) color=$RED ;;
+        *) color=$RESET ;;
+    esac
+
     echo "[$timestamp] [$level] $msg" >> "$LOG_FILE"
-    echo -e "${CYAN}$msg${NC}"
+    echo -e "${color}$msg${RESET}"
 }
 
 # ===========================
@@ -47,209 +54,106 @@ show_header() {
     echo -e " 🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈"
     echo -e "    Do not pspsssps 😼"
     echo -e " 💐 Theme: Electric Cyan 💐"
-    echo -e "===============================================================================${NC}"
+    echo -e "================================================================${RESET}"
 }
 
 # ===========================
-# DEPENDENCIES
+# FUNCTIONS
 # ===========================
-install_deps() {
-    log INFO "🔄 Updating package list..."
-    sudo apt update -y
 
-    log INFO "📦 Installing dependencies..."
-    sudo apt install -y python3 python3-venv python3-pip curl wget screen git lsof ufw jq perl gnupg
-
-    log INFO "🟢 Installing Node.js 20..."
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt install -y nodejs
-
-    log INFO "🧵 Installing Yarn..."
-    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg >/dev/null
-    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list >/dev/null
-    sudo apt update -y
-    sudo apt install -y yarn
-
-    log INFO "🛡️ Setting up firewall..."
-    sudo ufw allow 22 >/dev/null 2>&1 || true
-    sudo ufw allow 3000/tcp >/dev/null 2>&1 || true
-    sudo ufw --force enable >/dev/null 2>&1 || true
-
-    log INFO "🌩️ Installing Cloudflared..."
-    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared-linux-amd64.deb >/dev/null 2>&1 || sudo apt -y -f install
-    rm -f cloudflared-linux-amd64.deb
-
-    log INFO "✅ All dependencies installed successfully!"
-}
-
-# ===========================
-# SWAP (optional helper)
-# ===========================
-manage_swap() {
-    if [ ! -f "$SWAP_FILE" ]; then
-        log INFO "💾 Creating 1GB swap file..."
-        sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
-        sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
-        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
-        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
-        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
-        log INFO "✅ Swap file created."
-    else
-        log INFO "ℹ️ Swap file already exists."
-    fi
-}
-
-# ===========================
-# SAFE (RE)CLONE
-# ===========================
-clone_repo() {
-    log INFO "📥 Cloning repo: $REPO_URL"
-    if [ -d "$SWARM_DIR/.git" ]; then
-        (cd "$SWARM_DIR" && git fetch --all && git reset --hard origin/HEAD) || {
-            log INFO "⚠️ Local repo broken; re-cloning."
-            sudo rm -rf "$SWARM_DIR"
-            git clone "$REPO_URL" "$SWARM_DIR" || { log ERROR "❌ Git clone failed"; return 1; }
-        }
-    else
-        sudo rm -rf "$SWARM_DIR" 2>/dev/null
-        git clone "$REPO_URL" "$SWARM_DIR" || { log ERROR "❌ Git clone failed"; return 1; }
-    fi
-    cd "$SWARM_DIR" || { log ERROR "❌ Cannot enter $SWARM_DIR"; return 1; }
-    return 0
-}
-
-# ===========================
-# INSTALL
-# ===========================
 install_node() {
-    show_header
-    log INFO "🚀 INSTALLATION STARTED"
-
-    install_deps
-    clone_repo || { log ERROR "❌ Repo clone failed. Aborting."; return; }
-
-    if [ -f "$SWARM_DIR/package.json" ]; then
-        log INFO "📦 Detected Node.js project"
-        cd "$SWARM_DIR"
-        npm install || { log ERROR "❌ npm install failed"; return; }
-        log INFO "✅ Node.js dependencies installed"
-
-    elif [ -f "$SWARM_DIR/requirements.txt" ]; then
-        log INFO "🐍 Detected Python project"
-        cd "$SWARM_DIR"
-        python3 -m venv venv
-        source venv/bin/activate
-        pip install --upgrade pip
-        pip install -r requirements.txt || { log ERROR "❌ pip install failed"; deactivate 2>/dev/null; return; }
-        log INFO "✅ Python dependencies installed"
-        deactivate 2>/dev/null || true
+    log INFO "📥 Cloning repo: $REPO_URL"
+    if [ -d "$SWARM_DIR" ]; then
+        log WARN "⚠️ Directory already exists. Pulling latest changes..."
+        cd "$SWARM_DIR" && git pull
     else
-        log INFO "⚠️ No dependency file detected (package.json or requirements.txt). Skipping dependency installation."
+        git clone "$REPO_URL" "$SWARM_DIR" || { log ERROR "❌ Failed to clone repo."; return; }
+    fi
+
+    cd "$SWARM_DIR" || { log ERROR "❌ Failed to enter directory."; return; }
+
+    # Dependency check
+    if [ -f "package.json" ]; then
+        log INFO "📦 Installing Node.js dependencies..."
+        npm install || log ERROR "❌ Failed to install npm packages."
+    elif [ -f "requirements.txt" ]; then
+        log INFO "🐍 Installing Python dependencies..."
+        pip install -r requirements.txt || log ERROR "❌ Failed to install Python packages."
+    else
+        echo -e "${CYAN}ℹ️ No package.json or requirements.txt found. This repo may just contain scripts or docs.${RESET}"
+        if [ -f "README.md" ]; then
+            echo -e "${CYAN}📖 A README.md file was found. Check it for manual setup instructions.${RESET}"
+        else
+            echo -e "${CYAN}❓ No README.md detected either. This may be a bare repo.${RESET}"
+        fi
+        log INFO "ℹ️ No dependency files detected."
     fi
 }
 
-# ===========================
-# RUN
-# ===========================
 run_node() {
-    show_header
-    log INFO "▶️ Running project..."
-
-    cd "$SWARM_DIR" || { log ERROR "❌ Missing $SWARM_DIR"; return; }
-
-    if [ -f "package.json" ]; then
-        if jq -e '.scripts.start' package.json >/dev/null 2>&1; then
-            npm start
-        elif [ -f "index.js" ]; then
-            log INFO "⚠️ No start script. Running index.js directly."
-            node index.js
-        else
-            log INFO "⚠️ No start script or index.js found. Please run manually."
-        fi
-
-    elif [ -f "requirements.txt" ]; then
-        source venv/bin/activate 2>/dev/null || python3 -m venv venv && source venv/bin/activate
-        if [ -f "main.py" ]; then
-            python3 main.py
-        else
-            log INFO "⚠️ No main.py found, please run manually inside $SWARM_DIR"
-        fi
-        deactivate 2>/dev/null || true
-    else
-        log INFO "⚠️ No entry point detected. Repo may only contain scripts or libraries."
+    if [ ! -d "$SWARM_DIR" ]; then
+        log ERROR "❌ Node not installed. Install it first."
+        return
     fi
+    log INFO "▶️ Running node..."
+    cd "$SWARM_DIR" || return
+    # Placeholder: Replace this with actual start command
+    echo -e "${CYAN}Node started (replace with your command)${RESET}"
 }
 
-# ===========================
-# UPDATE
-# ===========================
 update_node() {
-    show_header
+    if [ ! -d "$SWARM_DIR" ]; then
+        log ERROR "❌ Node not installed. Install it first."
+        return
+    fi
     log INFO "⬆️ Updating node..."
-    if [ ! -d "$SWARM_DIR/.git" ]; then
-        log INFO "⚠️ Repo not present; cloning now..."
-        clone_repo || { log ERROR "❌ Clone failed"; return; }
-    fi
-    cd "$SWARM_DIR" || { log ERROR "❌ Missing $SWARM_DIR"; return; }
-    git pull
-    if [ -f "package.json" ]; then
-        npm install
-    elif [ -f "requirements.txt" ]; then
-        source venv/bin/activate 2>/dev/null || python3 -m venv venv && source venv/bin/activate
-        pip install -r requirements.txt
-        deactivate 2>/dev/null || true
-    fi
-    log INFO "✅ Node updated!"
+    cd "$SWARM_DIR" && git pull || log ERROR "❌ Update failed."
 }
 
-# ===========================
-# RESET CONFIG
-# ===========================
 reset_config() {
-    show_header
-    log INFO "⚠️ Resetting config..."
-    rm -rf "$CONFIG_FILE"
-    log INFO "✅ Config reset."
+    if [ -f "$CONFIG_FILE" ]; then
+        rm -f "$CONFIG_FILE"
+        log WARN "⚠️ Config file reset."
+    else
+        log WARN "⚠️ No config file found to reset."
+    fi
 }
 
-# ===========================
-# DELETE ALL
-# ===========================
 delete_all() {
-    show_header
-    log INFO "⚠️ Deleting node and data..."
-    sudo systemctl stop swarm 2>/dev/null || true
-    rm -rf "$SWARM_DIR" "$CONFIG_FILE" "$LOG_FILE"
-    log INFO "✅ Everything removed."
+    if [ -d "$SWARM_DIR" ]; then
+        rm -rf "$SWARM_DIR"
+        log WARN "🗑️ Node files deleted."
+    else
+        log WARN "⚠️ No files found to delete."
+    fi
 }
 
 # ===========================
-# MAIN MENU
+# MENU
 # ===========================
 while true; do
     show_header
     echo
-    echo -e "${CYAN}${BOLD}1.${NC} Install Node"
-    echo -e "${CYAN}${BOLD}2.${NC} Run Node"
-    echo -e "${CYAN}${BOLD}3.${NC} Update Node"
-    echo -e "${CYAN}${BOLD}4.${NC} Reset Config"
-    echo -e "${CYAN}${BOLD}5.${NC} Delete Everything"
-    echo -e "${CYAN}${BOLD}6.${NC} Exit"
-    echo -e "${CYAN}==========================================${NC}"
-    echo -ne "${CYAN}👉 Select option [1-6]: ${NC}"
+    echo -e "${CYAN}${BOLD}1.${RESET} Install Node"
+    echo -e "${CYAN}${BOLD}2.${RESET} Run Node"
+    echo -e "${CYAN}${BOLD}3.${RESET} Update Node"
+    echo -e "${CYAN}${BOLD}4.${RESET} Reset Config"
+    echo -e "${CYAN}${BOLD}5.${RESET} Delete Everything"
+    echo -e "${CYAN}${BOLD}6.${RESET} Exit"
+    echo -e "${CYAN}==========================================${RESET}"
+    echo -ne "${YELLOW}👉 Select option [1-6]: ${RESET}"
     read -r choice
 
     case $choice in
-        1) echo -e "${CYAN}➡️ Installing Node...${NC}"; install_node ;;
-        2) echo -e "${CYAN}▶️ Running Node...${NC}"; run_node ;;
-        3) echo -e "${CYAN}⬆️ Updating Node...${NC}"; update_node ;;
-        4) echo -e "${CYAN}🧹 Resetting Config...${NC}"; reset_config ;;
-        5) echo -e "${CYAN}🔥 Deleting Everything...${NC}"; delete_all ;;
-        6) echo -e "${CYAN}👋 Bye!${NC}"; log INFO "👋 Bye"; exit ;;
-        *) echo -e "${CYAN}❌ Invalid option${NC}"; log ERROR "❌ Invalid option";;
+        1) install_node ;;
+        2) run_node ;;
+        3) update_node ;;
+        4) reset_config ;;
+        5) delete_all ;;
+        6) log INFO "👋 Bye"; exit ;;
+        *) log ERROR "❌ Invalid option" ;;
     esac
 
-    echo -e "${CYAN}Press Enter to continue...${NC}"
+    echo -e "${CYAN}Press Enter to continue...${RESET}"
     read -r
 done
