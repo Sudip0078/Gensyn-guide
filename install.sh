@@ -520,3 +520,137 @@ read -p "$(echo -e "${BOLD}Choose model [0-6] (Enter = keep current: ${MODEL_NAM
 
 if [ -n "$model_choice" ]; then  
     case $model_choice i
+update_node() {
+    set +m  
+
+    show_header
+    echo -e "${CYAN}${BOLD}INSTALLATION${NC}"
+    echo -e "${YELLOW}===============================================================================${NC}"
+    
+    echo -e "\n${CYAN}Auto-login configuration:${NC}"
+    echo "Preserve login data between sessions? (recommended for auto-login)"
+    read -p "${BOLD}Enable auto-login? [Y/n]: ${NC}" auto_login
+
+    KEEP_TEMP_DATA=$([[ "$auto_login" =~ ^[Nn]$ ]] && echo "false" || echo "true")
+    export KEEP_TEMP_DATA
+
+    if [ -f "$SWARM_DIR/swarm.pem" ]; then
+        echo -e "\n${YELLOW}⚠️ Existing swarm.pem detected in SWARM_DIR! Keeping and using existing Swarm.pem.${NC}"
+        sudo cp "$SWARM_DIR/swarm.pem" "$HOME/swarm.pem"
+        log "INFO" "PEM copied from SWARM_DIR to HOME"
+    fi
+
+    echo -e "\n${YELLOW}Starting installation...${NC}"
+
+    spinner() {
+        local pid=$1
+        local msg="$2"
+        local spinstr="-\|/"
+        while kill -0 "$pid" 2>/dev/null; do
+            for (( i=0; i<${#spinstr}; i++ )); do
+                printf "\r$msg ${spinstr:$i:1} "
+                sleep 0.15
+            done
+        done
+        printf "\r$msg ✅ Done"; tput el; echo
+    }
+
+    ( install_deps ) & spinner $! "📦 Installing dependencies"
+    ( clone_repo ) & spinner $! "📥 Cloning repo"
+    ( modify_run_script ) & spinner $! "🛠 Modifying run script"
+
+    if [ -f "$HOME/swarm.pem" ]; then
+        sudo cp "$HOME/swarm.pem" "$SWARM_DIR/swarm.pem"
+        sudo chmod 600 "$SWARM_DIR/swarm.pem"
+    fi
+
+    echo -e "\n${GREEN}✅ Installation completed!${NC}"
+    echo -e "Auto-login: ${GREEN}$([ "$KEEP_TEMP_DATA" == "true" ] && echo "ENABLED" || echo "DISABLED")${NC}"
+    echo -e "${YELLOW}${BOLD}👉 Press Enter to return to the menu...${NC}"
+    read
+    sleep 1
+}
+
+# Reset Peer ID
+reset_peer() {
+    echo -e "${RED}${BOLD}⚠️ WARNING: This will delete ALL node keys and data!${NC}"
+    read -p "${BOLD}Are you sure? [y/N]: ${NC}" confirm
+    
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        sudo rm -f ~/swarm.pem ~/userData.json ~/userApiKey.json
+        sudo rm -f "$SWARM_DIR"/{swarm.pem,modal-login/temp-data/{userData.json,userApiKey.json}}
+        echo -e "${GREEN}✅ All keys and data deleted!${NC}"
+        echo -e "${YELLOW}⚠️ Reinstall node to generate new keys${NC}"
+    else
+        echo -e "${YELLOW}⚠️ Operation canceled${NC}"
+    fi
+    sleep 5
+}
+
+install_python_packages() {
+    TRANSFORMERS_VERSION=$(pip show transformers 2>/dev/null | grep ^Version: | awk '{print $2}')
+    TRL_VERSION=$(pip show trl 2>/dev/null | grep ^Version: | awk '{print $2}')
+
+    if [ "$TRANSFORMERS_VERSION" != "4.51.3" ] || [ "$TRL_VERSION" != "0.19.1" ]; then
+        pip install --force-reinstall transformers==4.51.3 trl==0.19.1
+    fi
+    pip freeze | grep -E '^(transformers|trl)=='
+}
+
+# Main Menu
+main_menu() {
+    while true; do
+        show_header
+        echo -e "${BOLD}${MAGENTA}==================== 🛠 GENSYN MAIN MENU ====================${NC}"
+        echo "1. 🛠  Install/Reinstall Node"
+        echo "2. 🚀  Run Node"
+        echo "3. ⚙️  Update Node"
+        echo "4. ♻️  Reset Peer ID"
+        echo "5. 🗑️  Delete Everything & Start New"
+        echo "6. 📉  Downgrade Version"
+        echo "7. ❌ Exit"
+        echo -e "${GREEN}===============================================================================${NC}"
+        
+        read -p "${BOLD}${YELLOW}👉 Select option [1-7]: ${NC}" choice
+        
+        case $choice in
+            1) install_node ;;
+            2) run_node ;;
+            3) update_node ;;
+            4) reset_peer ;;
+            5)
+                echo -e "\n${RED}${BOLD}⚠️ WARNING: This will delete ALL node data!${NC}"
+                read -p "${BOLD}Are you sure you want to continue? [y/N]: ${NC}" confirm
+                if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                    sudo rm -rf "$SWARM_DIR"
+                    sudo rm -f ~/swarm.pem ~/userData.json ~/userApiKey.json
+                    echo -e "${GREEN}✅ All node data deleted!${NC}"
+
+                    echo -e "\n${YELLOW}➡️ Do you want to reinstall the node now?${NC}"
+                    read -p "${BOLD}Proceed with fresh install? [Y/n]: ${NC}" reinstall_choice
+                    if [[ ! "$reinstall_choice" =~ ^[Nn]$ ]]; then
+                        install_node
+                    else
+                        echo -e "${CYAN}❌ Fresh install skipped.${NC}"
+                    fi
+                else
+                    echo -e "${YELLOW}⚠️ Operation canceled${NC}"
+                fi
+                ;;
+            6) install_downgraded_node ;;
+            7)
+                echo -e "\n${GREEN}✅ Exiting... Thank you for using Speedo Manager!${NC}"
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}❌ Invalid option!${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# Initialize and start
+init
+trap "echo -e '\n${GREEN}✅ Stopped gracefully${NC}'; disable_swap; exit 0" SIGINT
+main_menu
