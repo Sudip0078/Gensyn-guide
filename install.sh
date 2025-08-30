@@ -2,27 +2,11 @@
 # set -e
 
 # ===========================
-# COLORS
+# COLORS (always cyan)
 # ===========================
-if [ -t 1 ] && [ -n "$(tput colors)" ] && [ "$(tput colors)" -ge 8 ]; then
-    BOLD=$(tput bold)
-    RED=$(tput setaf 1)
-    GREEN=$(tput setaf 2)
-    YELLOW=$(tput setaf 3)
-    CYAN=$(tput setaf 6)
-    BLUE=$(tput setaf 4)
-    MAGENTA=$(tput setaf 5)
-    NC=$(tput sgr0)
-else
-    BOLD=""
-    RED=""
-    GREEN=""
-    YELLOW=""
-    CYAN=""
-    BLUE=""
-    MAGENTA=""
-    NC=""
-fi
+CYAN="\033[0;36m"
+BOLD="\033[1m"
+NC="\033[0m"
 
 # ===========================
 # PATHS & VARIABLES
@@ -41,13 +25,10 @@ KEEP_TEMP_DATA=true
 log() {
     local level="$1"
     local msg="$2"
-    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     echo "[$timestamp] [$level] $msg" >> "$LOG_FILE"
-    case "$level" in
-        ERROR) echo -e "${RED}$msg${NC}" ;;
-        WARN) echo -e "${YELLOW}$msg${NC}" ;;
-        INFO) echo -e "${CYAN}$msg${NC}" ;;
-    esac
+    echo -e "${CYAN}$msg${NC}"
 }
 
 # ===========================
@@ -55,7 +36,7 @@ log() {
 # ===========================
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}"
+    echo -e "${CYAN}${BOLD}"
     echo "┌───────────────────────────────────────────────────────────────┐"
     echo "│    _____ ____  ________________  ____                         │"
     echo "│   / ___// __ \/ ____/ ____/ __ \/ __ \                        │"
@@ -63,9 +44,11 @@ show_header() {
     echo "│  ___/ / ____/ /___/ /___/ /_/ / /_/ /                         │"
     echo "│ /____/_/   /_____/_____/_____/\____/                          │"
     echo "└───────────────────────────────────────────────────────────────┘"
-    echo -e "${YELLOW} 🚀 Gensyn RL-Swarm Launcher by SPEEDO ✨${NC}"
-    echo -e "${CYAN} ✨ Theme: Ice Blue (Electric Blue) ✨${NC}"
-    echo -e "${GREEN}===============================================================================${NC}"
+    echo -e " 🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈
+
+                       Do not pspsssps 😼"
+    echo -e ".    💐 Theme: Electric Cyan 💐"
+    echo -e "===============================================================================${NC}"
 }
 
 # ===========================
@@ -81,61 +64,71 @@ install_deps() {
     sudo apt install -y nodejs
 
     echo "🧵 Installing Yarn..."
-    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg
-    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+    curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/yarn.gpg >/dev/null
+    echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list >/dev/null
     sudo apt update -y
     sudo apt install -y yarn
 
     echo "🛡️ Setting up firewall..."
-    sudo ufw allow 22
-    sudo ufw allow 3000/tcp
-    sudo ufw --force enable
+    sudo ufw allow 22 >/dev/null 2>&1 || true
+    sudo ufw allow 3000/tcp >/dev/null 2>&1 || true
+    sudo ufw --force enable >/dev/null 2>&1 || true
 
     echo "🌩️ Installing Cloudflared..."
-    wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared-linux-amd64.deb || sudo apt install -f
+    wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+    sudo dpkg -i cloudflared-linux-amd64.deb >/dev/null 2>&1 || sudo apt -y -f install
     rm -f cloudflared-linux-amd64.deb
 
     echo "✅ All dependencies installed successfully!"
 }
 
 # ===========================
-# SWAP
+# SWAP (optional helper)
 # ===========================
 manage_swap() {
     if [ ! -f "$SWAP_FILE" ]; then
         sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
         sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
-        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
-        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
+        sudo mkswap "$SWAP_FILE"  >/dev/null 2>&1
+        sudo swapon "$SWAP_FILE"  >/dev/null 2>&1
         echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
     fi
 }
 
 # ===========================
-# CLONE REPO
+# SAFE (RE)CLONE
 # ===========================
 clone_repo() {
-    sudo rm -rf "$SWARM_DIR" 2>/dev/null
-    git clone "$REPO_URL" "$SWARM_DIR"
-    cd "$SWARM_DIR"
+    log INFO "Cloning repo: $REPO_URL"
+    if [ -d "$SWARM_DIR/.git" ]; then
+        (cd "$SWARM_DIR" && git fetch --all && git reset --hard origin/HEAD) || {
+            log INFO "Local repo looked broken; re-cloning."
+            sudo rm -rf "$SWARM_DIR"
+            git clone "$REPO_URL" "$SWARM_DIR" || { log INFO "Git clone failed"; return 1; }
+        }
+    else
+        sudo rm -rf "$SWARM_DIR" 2>/dev/null
+        git clone "$REPO_URL" "$SWARM_DIR" || { log INFO "Git clone failed"; return 1; }
+    fi
+    cd "$SWARM_DIR" || { log INFO "Cannot enter $SWARM_DIR"; return 1; }
+    return 0
 }
 
 # ===========================
-# INSTALL (Smart Detection)
+# INSTALL
 # ===========================
 install_node() {
     show_header
     echo -e "${CYAN}${BOLD}INSTALLATION STARTED${NC}"
 
     install_deps
-    clone_repo
+    clone_repo || { echo -e "${CYAN}❌ Repo clone failed. Aborting.${NC}"; return; }
 
     if [ -f "$SWARM_DIR/package.json" ]; then
         echo -e "${CYAN}📦 Detected Node.js project${NC}"
         cd "$SWARM_DIR"
-        npm install
-        echo -e "${GREEN}✅ Node.js dependencies installed${NC}"
+        npm install || { echo -e "${CYAN}❌ npm install failed${NC}"; return; }
+        echo -e "${CYAN}✅ Node.js dependencies installed${NC}"
 
     elif [ -f "$SWARM_DIR/requirements.txt" ]; then
         echo -e "${CYAN}🐍 Detected Python project${NC}"
@@ -143,37 +136,47 @@ install_node() {
         python3 -m venv venv
         source venv/bin/activate
         pip install --upgrade pip
-        pip install -r requirements.txt
-        echo -e "${GREEN}✅ Python dependencies installed${NC}"
-
+        pip install -r requirements.txt || { echo -e "${CYAN}❌ pip install failed${NC}"; deactivate 2>/dev/null; return; }
+        echo -e "${CYAN}✅ Python dependencies installed${NC}"
+        deactivate 2>/dev/null || true
     else
-        echo -e "${RED}❌ No package.json or requirements.txt found in repo!${NC}"
-        echo -e "${YELLOW}⚠️ Please check the repo: $REPO_URL${NC}"
+        echo -e "${CYAN}❌ No package.json or requirements.txt found in repo!${NC}"
+        echo -e "${CYAN}⚠️ Please check the repo: $REPO_URL${NC}"
     fi
 }
 
 # ===========================
-# RUN (Smart Detection)
+# RUN
 # ===========================
 run_node() {
     show_header
     echo -e "${CYAN}▶️ Running project...${NC}"
 
     if [ -f "$SWARM_DIR/package.json" ]; then
-        cd "$SWARM_DIR"
-        npm start
+        cd "$SWARM_DIR" || { echo -e "${CYAN}❌ Missing $SWARM_DIR${NC}"; return; }
+        if jq -e '.scripts.start' package.json >/dev/null 2>&1; then
+            npm start
+        else
+            echo -e "${CYAN}⚠️ No \"start\" script in package.json. Running: node index.js (if exists)${NC}"
+            if [ -f "index.js" ]; then
+                node index.js
+            else
+                echo -e "${CYAN}❌ No start script or index.js found.${NC}"
+            fi
+        fi
 
     elif [ -f "$SWARM_DIR/requirements.txt" ]; then
-        cd "$SWARM_DIR"
-        source venv/bin/activate
+        cd "$SWARM_DIR" || { echo -e "${CYAN}❌ Missing $SWARM_DIR${NC}"; return; }
+        source venv/bin/activate 2>/dev/null || python3 -m venv venv && source venv/bin/activate
         if [ -f "main.py" ]; then
             python3 main.py
         else
-            echo -e "${YELLOW}⚠️ No main.py found, please run manually inside $SWARM_DIR${NC}"
+            echo -e "${CYAN}⚠️ No main.py found, please run manually inside $SWARM_DIR${NC}"
         fi
+        deactivate 2>/dev/null || true
 
     else
-        echo -e "${RED}❌ Cannot run project. Neither Node.js nor Python entry point found.${NC}"
+        echo -e "${CYAN}❌ Cannot run project. Neither Node.js nor Python entry point found.${NC}"
     fi
 }
 
@@ -183,15 +186,20 @@ run_node() {
 update_node() {
     show_header
     echo -e "${CYAN}⬆️ Updating node...${NC}"
-    cd "$SWARM_DIR"
+    if [ ! -d "$SWARM_DIR/.git" ]; then
+        echo -e "${CYAN}⚠️ Repo not present; cloning now...${NC}"
+        clone_repo || { echo -e "${CYAN}❌ Clone failed${NC}"; return; }
+    fi
+    cd "$SWARM_DIR" || { echo -e "${CYAN}❌ Missing $SWARM_DIR${NC}"; return; }
     git pull
     if [ -f "package.json" ]; then
         npm install
     elif [ -f "requirements.txt" ]; then
-        source venv/bin/activate
+        source venv/bin/activate 2>/dev/null || python3 -m venv venv && source venv/bin/activate
         pip install -r requirements.txt
+        deactivate 2>/dev/null || true
     fi
-    echo -e "${GREEN}✅ Node updated!${NC}"
+    echo -e "${CYAN}✅ Node updated!${NC}"
 }
 
 # ===========================
@@ -199,9 +207,9 @@ update_node() {
 # ===========================
 reset_config() {
     show_header
-    echo -e "${RED}⚠️ Resetting config...${NC}"
+    echo -e "${CYAN}⚠️ Resetting config...${NC}"
     rm -rf "$CONFIG_FILE"
-    echo -e "${GREEN}✅ Config reset.${NC}"
+    echo -e "${CYAN}✅ Config reset.${NC}"
 }
 
 # ===========================
@@ -209,10 +217,10 @@ reset_config() {
 # ===========================
 delete_all() {
     show_header
-    echo -e "${RED}⚠️ Deleting node and data...${NC}"
-    sudo systemctl stop swarm || true
+    echo -e "${CYAN}⚠️ Deleting node and data...${NC}"
+    sudo systemctl stop swarm 2>/dev/null || true
     rm -rf "$SWARM_DIR" "$CONFIG_FILE" "$LOG_FILE"
-    echo -e "${GREEN}✅ Everything removed.${NC}"
+    echo -e "${CYAN}✅ Everything removed.${NC}"
 }
 
 # ===========================
@@ -227,7 +235,7 @@ while true; do
     echo "5. Delete Everything"
     echo "6. Exit"
     echo "=========================================="
-    read -p "👉 Select option [1-6]: " choice
+    read -r -p "👉 Select option [1-6]: " choice
 
     case $choice in
         1) install_node ;;
@@ -238,5 +246,5 @@ while true; do
         6) echo "👋 Bye"; exit ;;
         *) echo "❌ Invalid option";;
     esac
-    read -p "Press Enter to continue..."
+    read -r -p "Press Enter to continue..."
 done
