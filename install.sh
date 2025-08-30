@@ -54,16 +54,15 @@ init() {
 # Display Header
 show_header() {
     clear
-    echo -e "${BLUE}${BOLD}"
+    echo -e "${GREEN}${BOLD}"
     echo "┌───────────────────────────────────────────────────────────────┐"
-    echo "│   ███████╗██████╗ ███████╗███████╗██████╗  ██████╗             │"
-    echo "│   ██╔════╝██╔══██╗██╔════╝██╔════╝██╔══██╗██╔═══██╗            │"
-    echo "│   █████╗  ██████╔╝█████╗  █████╗  ██████╔╝██║   ██║            │"
-    echo "│   ██╔══╝  ██╔═══╝ ██╔══╝  ██╔══╝  ██╔═══╝ ██║   ██║            │"
-    echo "│   ██║     ██║     ███████╗███████╗██║     ╚██████╔╝            │"
-    echo "│   ╚═╝     ╚═╝     ╚══════╝╚══════╝╚═╝      ╚═════╝             │"
+    echo "│    _____ ____  ________________  ____                         │"
+    echo "│   / ___// __ \/ ____/ ____/ __ \/ __ \                        │"
+    echo "│   \__ \/ /_/ / __/ / __/ / / / / / / /                        │"
+    echo "│  ___/ / ____/ /___/ /___/ /_/ / /_/ /                         │"
+    echo "│ /____/_/   /_____/_____/_____/\____/                          │"
     echo "└───────────────────────────────────────────────────────────────┘"
-    echo -e "${YELLOW}           🚀 Gensyn RL-Swarm Launcher by SPEEDO 🚀${NC}"
+    echo -e "${YELLOW}           🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈${NC}"
     echo -e "${GREEN}===============================================================================${NC}"
 }
 
@@ -94,6 +93,32 @@ install_deps() {
     rm -f cloudflared-linux-amd64.deb
 
     echo "✅ All dependencies installed successfully!"
+}
+
+# Swap Management
+manage_swap() {
+    if [ ! -f "$SWAP_FILE" ]; then
+        sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
+        sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
+        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
+        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
+        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
+    fi
+}
+
+disable_swap() {
+    if [ -f "$SWAP_FILE" ]; then
+        sudo swapoff "$SWAP_FILE"
+        sudo rm -f "$SWAP_FILE"
+        sudo sed -i "\|$SWAP_FILE|d" /etc/fstab
+    fi
+}
+
+# Fixall Script (placeholder)
+run_fixall() {
+    echo -e "${CYAN}🔧 Applying fixes...${NC}"
+    echo -e "${GREEN}✅ Fixall complete (placeholder).${NC}"
+    sleep 3
 }
 
 # Clone Repository
@@ -148,67 +173,6 @@ delete_all() {
     echo -e "${GREEN}✅ Everything removed.${NC}"
 }
 
-# ===========================
-# Main Menu
-# ===========================
-while true; do
-    show_header
-    echo "1. Install Node"
-    echo "2. Run Node"
-    echo "3. Update Node"
-    echo "4. Reset Config"
-    echo "5. Delete Everything"
-    echo "6. Exit"
-    echo "=========================================="
-    read -p "👉 Select option [1-6]: " choice
-
-    case $choice in
-        1) install_node ;;
-        2) run_node ;;
-        3) update_node ;;
-        4) reset_config ;;
-        5) delete_all ;;
-        6) echo "👋 Bye"; exit ;;
-        *) echo "❌ Invalid option";;
-    esac
-    read -p "Press Enter to continue..."
-done
-        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
-    fi
-}
-
-disable_swap() {
-    if [ -f "$SWAP_FILE" ]; then
-        sudo swapoff "$SWAP_FILE"
-        sudo rm -f "$SWAP_FILE"
-        sudo sed -i "\|$SWAP_FILE|d" /etc/fstab
-    fi
-}
-
-# Fixall Script (cleaned)
-run_fixall() {
-    echo -e "${CYAN}🔧 Applying fixes...${NC}"
-    # Placeholder: Add Speedo’s custom fix script here if available
-    echo -e "${GREEN}✅ Fixall complete (placeholder).${NC}"
-    sleep 3
-}
-
-# Clone Repository
-clone_repo() {
-    sudo rm -rf "$SWARM_DIR" 2>/dev/null
-    git clone "$REPO_URL" "$SWARM_DIR" >/dev/null 2>&1
-    cd "$SWARM_DIR"
-}
-
-clone_downgraded_repo() {
-    sudo rm -rf "$SWARM_DIR" 2>/dev/null
-    git clone "$REPO_URL" "$SWARM_DIR" >/dev/null 2>&1
-    cd "$SWARM_DIR"
-    git checkout 305d3f3227d9ca27f6b4127a5379fc6a40143525 >/dev/null 2>&1
-}
-
-# --- rest of your functions (config, install, run, update, etc.) stay as in your script ---
-# (All Speedo references already cleaned; banner, log headers, fixall done above)
 # ===========================
 # Main Menu
 # ===========================
