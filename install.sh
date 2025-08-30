@@ -1,7 +1,9 @@
 #!/bin/bash
 # set -e
 
-# ===== Colors =====
+# ===========================
+# COLORS
+# ===========================
 if [ -t 1 ] && [ -n "$(tput colors)" ] && [ "$(tput colors)" -ge 8 ]; then
     BOLD=$(tput bold)
     RED=$(tput setaf 1)
@@ -22,7 +24,9 @@ else
     NC=""
 fi
 
-# ===== Paths =====
+# ===========================
+# PATHS & VARIABLES
+# ===========================
 SWARM_DIR="$HOME/rl-swarm"
 CONFIG_FILE="$SWARM_DIR/.swarm_config"
 LOG_FILE="$HOME/swarm_log.txt"
@@ -31,7 +35,9 @@ REPO_URL="https://github.com/gensyn-ai/rl-swarm.git"
 
 KEEP_TEMP_DATA=true
 
-# ===== Logging =====
+# ===========================
+# LOGGING
+# ===========================
 log() {
     local level="$1"
     local msg="$2"
@@ -39,22 +45,17 @@ log() {
     echo "[$timestamp] [$level] $msg" >> "$LOG_FILE"
     case "$level" in
         ERROR) echo -e "${RED}$msg${NC}" ;;
-        WARN)  echo -e "${YELLOW}$msg${NC}" ;;
-        INFO)  echo -e "${CYAN}$msg${NC}" ;;
+        WARN) echo -e "${YELLOW}$msg${NC}" ;;
+        INFO) echo -e "${CYAN}$msg${NC}" ;;
     esac
 }
 
-# ===== Init =====
-init() {
-    clear
-    touch "$LOG_FILE"
-    log "INFO" "=== SPEEDO RL-SWARM MANAGER STARTED ==="
-}
-
-# ===== Header (Ice Blue / Electric Blue Theme) =====
+# ===========================
+# HEADER
+# ===========================
 show_header() {
     clear
-    echo -e "${CYAN}${BOLD}"
+    echo -e "${BLUE}${BOLD}"
     echo "┌───────────────────────────────────────────────────────────────┐"
     echo "│    _____ ____  ________________  ____                         │"
     echo "│   / ___// __ \/ ____/ ____/ __ \/ __ \                        │"
@@ -62,12 +63,14 @@ show_header() {
     echo "│  ___/ / ____/ /___/ /___/ /_/ / /_/ /                         │"
     echo "│ /____/_/   /_____/_____/_____/\____/                          │"
     echo "└───────────────────────────────────────────────────────────────┘"
-    echo -e "      🚀 Gensyn RL-Swarm Launcher by SPEEDO 🐈"
-    echo -e "               ✨ Theme: Ice Blue (Electric Blue) ✨"
-    echo -e "===============================================================================${NC}"
+    echo -e "${YELLOW} 🚀 Gensyn RL-Swarm Launcher by SPEEDO ✨${NC}"
+    echo -e "${CYAN} ✨ Theme: Ice Blue (Electric Blue) ✨${NC}"
+    echo -e "${GREEN}===============================================================================${NC}"
 }
 
-# ===== Dependencies =====
+# ===========================
+# DEPENDENCIES
+# ===========================
 install_deps() {
     echo "🔄 Updating package list..."
     sudo apt update -y
@@ -96,58 +99,104 @@ install_deps() {
     echo "✅ All dependencies installed successfully!"
 }
 
-# ===== Swap =====
+# ===========================
+# SWAP
+# ===========================
 manage_swap() {
     if [ ! -f "$SWAP_FILE" ]; then
         sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
-        sudo chmod 600 "$SWAP_FILE"
-        sudo mkswap "$SWAP_FILE"
-        sudo swapon "$SWAP_FILE"
-        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null
+        sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
+        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
+        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
+        echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
     fi
 }
 
-disable_swap() {
-    if [ -f "$SWAP_FILE" ]; then
-        sudo swapoff "$SWAP_FILE"
-        sudo rm -f "$SWAP_FILE"
-        sudo sed -i "\|$SWAP_FILE|d" /etc/fstab
-    fi
-}
-
-# ===== Repo =====
+# ===========================
+# CLONE REPO
+# ===========================
 clone_repo() {
     sudo rm -rf "$SWARM_DIR" 2>/dev/null
     git clone "$REPO_URL" "$SWARM_DIR"
     cd "$SWARM_DIR"
 }
 
-# ===== Actions =====
+# ===========================
+# INSTALL (Smart Detection)
+# ===========================
 install_node() {
     show_header
     echo -e "${CYAN}${BOLD}INSTALLATION STARTED${NC}"
+
     install_deps
     clone_repo
-    echo -e "${GREEN}✅ Node installed successfully!${NC}"
+
+    if [ -f "$SWARM_DIR/package.json" ]; then
+        echo -e "${CYAN}📦 Detected Node.js project${NC}"
+        cd "$SWARM_DIR"
+        npm install
+        echo -e "${GREEN}✅ Node.js dependencies installed${NC}"
+
+    elif [ -f "$SWARM_DIR/requirements.txt" ]; then
+        echo -e "${CYAN}🐍 Detected Python project${NC}"
+        cd "$SWARM_DIR"
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        echo -e "${GREEN}✅ Python dependencies installed${NC}"
+
+    else
+        echo -e "${RED}❌ No package.json or requirements.txt found in repo!${NC}"
+        echo -e "${YELLOW}⚠️ Please check the repo: $REPO_URL${NC}"
+    fi
 }
 
+# ===========================
+# RUN (Smart Detection)
+# ===========================
 run_node() {
     show_header
-    echo -e "${CYAN}▶️ Running node...${NC}"
-    cd "$SWARM_DIR"
-    npm install
-    npm start
+    echo -e "${CYAN}▶️ Running project...${NC}"
+
+    if [ -f "$SWARM_DIR/package.json" ]; then
+        cd "$SWARM_DIR"
+        npm start
+
+    elif [ -f "$SWARM_DIR/requirements.txt" ]; then
+        cd "$SWARM_DIR"
+        source venv/bin/activate
+        if [ -f "main.py" ]; then
+            python3 main.py
+        else
+            echo -e "${YELLOW}⚠️ No main.py found, please run manually inside $SWARM_DIR${NC}"
+        fi
+
+    else
+        echo -e "${RED}❌ Cannot run project. Neither Node.js nor Python entry point found.${NC}"
+    fi
 }
 
+# ===========================
+# UPDATE
+# ===========================
 update_node() {
     show_header
     echo -e "${CYAN}⬆️ Updating node...${NC}"
     cd "$SWARM_DIR"
     git pull
-    npm install
+    if [ -f "package.json" ]; then
+        npm install
+    elif [ -f "requirements.txt" ]; then
+        source venv/bin/activate
+        pip install -r requirements.txt
+    fi
     echo -e "${GREEN}✅ Node updated!${NC}"
 }
 
+# ===========================
+# RESET CONFIG
+# ===========================
 reset_config() {
     show_header
     echo -e "${RED}⚠️ Resetting config...${NC}"
@@ -155,6 +204,9 @@ reset_config() {
     echo -e "${GREEN}✅ Config reset.${NC}"
 }
 
+# ===========================
+# DELETE ALL
+# ===========================
 delete_all() {
     show_header
     echo -e "${RED}⚠️ Deleting node and data...${NC}"
@@ -163,15 +215,17 @@ delete_all() {
     echo -e "${GREEN}✅ Everything removed.${NC}"
 }
 
-# ===== Menu =====
+# ===========================
+# MAIN MENU
+# ===========================
 while true; do
     show_header
-    echo -e "${CYAN}1. Install Node${NC}"
-    echo -e "${CYAN}2. Run Node${NC}"
-    echo -e "${CYAN}3. Update Node${NC}"
-    echo -e "${CYAN}4. Reset Config${NC}"
-    echo -e "${CYAN}5. Delete Everything${NC}"
-    echo -e "${CYAN}6. Exit${NC}"
+    echo "1. Install Node"
+    echo "2. Run Node"
+    echo "3. Update Node"
+    echo "4. Reset Config"
+    echo "5. Delete Everything"
+    echo "6. Exit"
     echo "=========================================="
     read -p "👉 Select option [1-6]: " choice
 
