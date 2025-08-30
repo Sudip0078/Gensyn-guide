@@ -71,8 +71,6 @@ show_header() {
 install_deps() {
     echo "🔄 Updating package list..."
     sudo apt update -y
-
-    echo "📦 Installing essential packages..."
     sudo apt install -y python3 python3-venv python3-pip curl wget screen git lsof ufw jq perl gnupg
 
     echo "🟢 Installing Node.js 20..."
@@ -98,13 +96,83 @@ install_deps() {
     echo "✅ All dependencies installed successfully!"
 }
 
-# Swap Management
-manage_swap() {
-    if [ ! -f "$SWAP_FILE" ]; then
-        sudo fallocate -l 1G "$SWAP_FILE" >/dev/null 2>&1
-        sudo chmod 600 "$SWAP_FILE" >/dev/null 2>&1
-        sudo mkswap "$SWAP_FILE" >/dev/null 2>&1
-        sudo swapon "$SWAP_FILE" >/dev/null 2>&1
+# Clone Repository
+clone_repo() {
+    sudo rm -rf "$SWARM_DIR" 2>/dev/null
+    git clone "$REPO_URL" "$SWARM_DIR"
+    cd "$SWARM_DIR"
+}
+
+# Install Node
+install_node() {
+    show_header
+    echo -e "${CYAN}${BOLD}INSTALLATION STARTED${NC}"
+    install_deps
+    clone_repo
+    echo -e "${GREEN}✅ Node installed successfully!${NC}"
+}
+
+# Run Node
+run_node() {
+    show_header
+    echo -e "${CYAN}▶️ Running node...${NC}"
+    cd "$SWARM_DIR"
+    npm install
+    npm start
+}
+
+# Update Node
+update_node() {
+    show_header
+    echo -e "${CYAN}⬆️ Updating node...${NC}"
+    cd "$SWARM_DIR"
+    git pull
+    npm install
+    echo -e "${GREEN}✅ Node updated!${NC}"
+}
+
+# Reset Config
+reset_config() {
+    show_header
+    echo -e "${RED}⚠️ Resetting config...${NC}"
+    rm -rf "$CONFIG_FILE"
+    echo -e "${GREEN}✅ Config reset.${NC}"
+}
+
+# Delete Everything
+delete_all() {
+    show_header
+    echo -e "${RED}⚠️ Deleting node and data...${NC}"
+    sudo systemctl stop swarm || true
+    rm -rf "$SWARM_DIR" "$CONFIG_FILE" "$LOG_FILE"
+    echo -e "${GREEN}✅ Everything removed.${NC}"
+}
+
+# ===========================
+# Main Menu
+# ===========================
+while true; do
+    show_header
+    echo "1. Install Node"
+    echo "2. Run Node"
+    echo "3. Update Node"
+    echo "4. Reset Config"
+    echo "5. Delete Everything"
+    echo "6. Exit"
+    echo "=========================================="
+    read -p "👉 Select option [1-6]: " choice
+
+    case $choice in
+        1) install_node ;;
+        2) run_node ;;
+        3) update_node ;;
+        4) reset_config ;;
+        5) delete_all ;;
+        6) echo "👋 Bye"; exit ;;
+        *) echo "❌ Invalid option";;
+    esac
+    read -p "Press Enter to continue..."
+done
         echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null 2>&1
     fi
 }
